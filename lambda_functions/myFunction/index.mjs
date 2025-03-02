@@ -10,8 +10,103 @@ async function getCastaways(client, args) {
   }
 }
 
+async function getUserByEmail(client, args) {
+  const email = JSON.parse(args)['email'] // open question - is parse required here?
+  const query = `SELECT id, email, created_at FROM survivor.user WHERE email = $1;`;
+  const res = await client.query(query, [email]);
+  if (res.rows.length < 1) {
+    return {
+      statusCode: 404,
+      body: "User does not exist"
+    }
+  }
+  return {
+    statusCode: 200,
+    body: JSON.stringify(res.rows[0])
+  }
+}
+
+async function createUser(client, args) {
+  const email = JSON.parse(args)['email'] // open question - is parse required here?
+  const query = `
+        INSERT INTO survivor.user (email)
+        VALUES ($1)
+        ON CONFLICT (email) DO NOTHING
+        RETURNING id, email, created_at;
+    `;
+    
+  const res = await client.query(query, [email])
+  if (res.rows.length > 0) {
+    // successfully created, return!
+    return {
+      statusCode: 201,
+      body: JSON.stringify(res.rows[0])
+    }
+  }
+  return await getUserByEmail(client, args)
+}
+
+async function getSelectionsForWeek(client, weekId, userId) {
+  const query = `
+      SELECT id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, created_at, removed_at
+      FROM survivor.selection 
+      WHERE _fk_user_id = $1 
+      AND _fk_week_id = $2 
+      AND removed_at = '9999-12-31 23:59:59';
+  `;
+  
+  const res = await client.query(query, [userId, weekId]);
+  return res.rows;
+}
+
+async function setSelections(client, args) {
+  const body = JSON.parse(args)
+  const selections = body['castaways']
+  const userId = body['userId']
+  const weekId = body['week'] // probably not a great parameterized thing.
+  if (selections.length > 3) {
+    return {
+      statusCode: 400,
+      body: "Too many selections"
+    }
+  }
+  // todo: more validation. 
+  try {
+    await client.query("BEGIN;");
+    
+
+    await client.query(
+        `UPDATE survivor.selection 
+          SET removed_at = NOW()
+          WHERE _fk_user_id = $1 
+          AND _fk_week_id = $2 
+          AND removed_at = '9999-12-31 23:59:59';`,
+        [userId, weekId]
+    );
+    
+    
+    const query = `
+    INSERT INTO survivor.selection (_fk_user_id, _fk_week_id, _fk_castaway_id, is_captain)
+    VALUES ${castaways.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(", ")};
+    `;
+
+    const values = castaways.flatMap(({ castawayId, isCaptain }) => [userId, weekId, castawayId, isCaptain]);
+    await client.query(query, values);
+
+    await client.query("COMMIT;");
+
+  } catch (error) {
+      await client.query("ROLLBACK;");
+      throw error;
+  }
+}
+
 const methodBank = {
-  '/castaways': getCastaways
+  '/castaways': getCastaways,
+  '/createUser': createUser,
+  '/getUser': getUserByEmail,
+  '/setSelections': setSelections,
+  '/getSelections': getSelectionsForWeek
 }
 
 async function execute(event, client) {
