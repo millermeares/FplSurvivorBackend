@@ -96,36 +96,58 @@ async function dsql_sample(token, endpoint) {
 }
 
 
-async function getCastaways(args, token, endpoint) {
-  return [{
-    name: 'Test Castaway',
-    id: 'uuid',
-    season: 48,
-    image_url: 's3 image url...'
-  }]
+async function getCastaways(client, args) {
+  const res = await client.query(`SELECT id, name, season, iamge_url, _fk_week_eliminated FROM survivor.castaway;`)
+  return {
+    statusCode: 200,
+    body: res.rows
+  }
 }
 
-function getEventHandlers() {
+const methodBank = {
+  'castaways': getCastaways
+}
 
-  return {
-    "getcastaways": getCastaways
+async function execute(event, client) {
+  if (!methodBank[event['path']]) {
+    return {
+      statusCode: 404,
+      body: "Path not found"
+    }
+  }
+  method = methodBank[event['path']]
+  try {
+    await client.connect()
+    return method(client, event['body'])
+  } catch (err) {
+    console.log("Error when executing path")
+    console.error(err)
+    return {
+      statusCode: 500,
+      body: "Internal Error"
+    }
+  } finally {
+    client.end();
+    Promise.resolve()
   }
 }
 
 // https://docs.aws.amazon.com/lambda/latest/dg/nodejs-handler.html
 export const handler = async (event) => {
   console.log(event)
-  const eventHandlers = getEventHandlers()
   const endpoint = process.env.DB_ENDPOINT;
   const s = new Signer(endpoint);
   const token = await s.getAuthToken();
-  console.log("token received")
+  console.log("auth token received, creating client and continuing.")
+  const client = new Client({
+    user: "admin",
+    database: "postgres",
+    host: endpoint,
+    password: token,
+    ssl: { 
+      rejectUnauthorized: false
+    },
+  });
 
-  const responseCode = await dsql_sample(token, endpoint);
-  console.log(responseCode)
-  const response = {
-    statusCode: responseCode,
-    endpoint: endpoint,
-  };
-  return response;
+  return await execute(event, client)
 };
