@@ -6,11 +6,12 @@ CREATE TABLE survivor.user (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE survivor.castaways (
+CREATE TABLE survivor.castaway (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     season INT NOT NULL,
-    image_url TEXT
+    image_url TEXT,
+    _fk_week_eliminated INT
 );
 
 CREATE TABLE survivor.week (
@@ -20,13 +21,13 @@ CREATE TABLE survivor.week (
     PRIMARY KEY(season, episode_number)
 );
 
-CREATE TABLE survivor.selections (
+CREATE TABLE survivor.selection (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     _fk_user_id UUID NOT NULL,
     _fk_week_id INT NOT NULL,
     _fk_castaway_id UUID NOT NULL,
     is_captain BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW(),
-    removed_at TIMESTAMP NULL,
-    UNIQUE (_fk_user_id, _fk_week_id, _fk_castaway_id)
+    removed_at TIMESTAMP NOT NULL DEFAULT '9999-12-31 23:59:59',
+    UNIQUE(_fk_user_id, _fk_week_id, _fk_castaway_id, removed_at)
 );
