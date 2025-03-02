@@ -1,3 +1,4 @@
 **/*.zip
 lambda_functions/myFunction/node_modules/
+lambda_functions/myFunction/node_modules/**/*
 lambda_functions/myFunction/package-lock.json
