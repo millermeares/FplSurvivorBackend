@@ -1,0 +1,32 @@
+CREATE SCHEMA survivor;
+
+CREATE TABLE survivor.user (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE survivor.castaways (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    season INT NOT NULL,
+    image_url TEXT
+);
+
+CREATE TABLE survivor.week (
+    season INT NOT NULL,
+    episode_number INT NOT NULL,
+    lock_time TIMESTAMP NOT NULL,
+    PRIMARY KEY(season, episode_number)
+);
+
+CREATE TABLE survivor.selections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    _fk_user_id UUID NOT NULL,
+    _fk_week_id INT NOT NULL,
+    _fk_castaway_id UUID NOT NULL,
+    is_captain BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    removed_at TIMESTAMP NULL,
+    UNIQUE (_fk_user_id, _fk_week_id, _fk_castaway_id)
+);
