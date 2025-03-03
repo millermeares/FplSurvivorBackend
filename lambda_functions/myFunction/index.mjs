@@ -1,7 +1,7 @@
 import pg from "pg";
 const { Client } = pg;
 import { Signer } from "./signer.js";
-import verifyToken from "./auth.js";
+import { getUserInfo } from "./auth.js";
 
 async function getCastaways(client, args) {
   const res = await client.query(`SELECT id, name, season, image_url, _fk_week_eliminated FROM survivor.castaway;`)
@@ -182,9 +182,9 @@ export const handler = async (event) => {
     return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized: No valid token provided" }) };
   }
   const accessToken = authHeader.split(" ")[1];
-  const verifiedToken = await verifyToken(accessToken)
-  console.log("verified token")
-  console.log(verifiedToken)
+  const userInfo = await getUserInfo(accessToken)
+  console.log("retrieved user info")
+  console.log(userInfo)
   const client = await getConnectedDbClient()
   const result = await execute(event, client)
   return handleCors(result)
