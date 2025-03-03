@@ -1,6 +1,7 @@
 import pg from "pg";
 const { Client } = pg;
 import { Signer } from "./signer.js";
+import verifyToken from "./auth.js";
 
 async function getCastaways(client, args) {
   const res = await client.query(`SELECT id, name, season, image_url, _fk_week_eliminated FROM survivor.castaway;`)
@@ -103,8 +104,6 @@ async function setSelections(client, args) {
 
 const methodBank = {
   '/castaways': getCastaways,
-  '/createUser': createUser,
-  '/getUser': getUserByEmail,
   '/setSelections': setSelections,
   '/getSelectionsForWeek': getSelectionsForWeek
 }
@@ -144,6 +143,23 @@ function handleCors(result) {
   return result
 }
 
+async function getConnectedDbClient() { 
+  const endpoint = process.env.DB_ENDPOINT;
+  const s = new Signer(endpoint);
+  const token = await s.getAuthToken();
+  console.log("auth token received, creating client and continuing.")
+  const client = new Client({
+    user: "admin",
+    database: "postgres",
+    host: endpoint,
+    password: token,
+    ssl: { 
+      rejectUnauthorized: false
+    },
+  });
+  return client
+}
+
 // https://docs.aws.amazon.com/lambda/latest/dg/nodejs-handler.html
 export const handler = async (event) => {
   console.log(event)
@@ -158,20 +174,18 @@ export const handler = async (event) => {
       body: ""
     };
   }
-  const endpoint = process.env.DB_ENDPOINT;
-  const s = new Signer(endpoint);
-  const token = await s.getAuthToken();
-  console.log("auth token received, creating client and continuing.")
-  const client = new Client({
-    user: "admin",
-    database: "postgres",
-    host: endpoint,
-    password: token,
-    ssl: { 
-      rejectUnauthorized: false
-    },
-  });
 
+
+  // Extract Authorization header
+  const authHeader = event.headers?.Authorization || event.headers?.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized: No valid token provided" }) };
+  }
+  const accessToken = authHeader.split(" ")[1];
+  const verifiedToken = await verifyToken(accessToken)
+  console.log("verified token")
+  console.log(verifiedToken)
+  const client = await getConnectedDbClient()
   const result = await execute(event, client)
   return handleCors(result)
 };
