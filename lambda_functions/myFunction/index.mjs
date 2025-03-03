@@ -106,7 +106,7 @@ const methodBank = {
   '/createUser': createUser,
   '/getUser': getUserByEmail,
   '/setSelections': setSelections,
-  '/getSelections': getSelectionsForWeek
+  '/getSelectionsForWeek': getSelectionsForWeek
 }
 
 async function execute(event, client) {
@@ -134,9 +134,30 @@ async function execute(event, client) {
   }
 }
 
+function handleCors(result) {
+  console.log("manually setting headers to handle cors maybe")
+  result['headers'] = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+  }
+  return result
+}
+
 // https://docs.aws.amazon.com/lambda/latest/dg/nodejs-handler.html
 export const handler = async (event) => {
   console.log(event)
+  if (event.httpMethod == "OPTIONS") {
+    return {
+        statusCode: 204,
+        headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization"
+        },
+      body: ""
+    };
+  }
   const endpoint = process.env.DB_ENDPOINT;
   const s = new Signer(endpoint);
   const token = await s.getAuthToken();
@@ -151,5 +172,6 @@ export const handler = async (event) => {
     },
   });
 
-  return await execute(event, client)
+  const result = await execute(event, client)
+  return handleCors(result)
 };
