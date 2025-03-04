@@ -35,6 +35,7 @@ export async function setSelections(client, args, userRecord) {
       body: "Too many selections"
     }
   }
+  console.log(castaways)
   // todo: more validation, especially around what week we are setting selections for.
   try {
     await client.query("BEGIN;");
@@ -51,14 +52,20 @@ export async function setSelections(client, args, userRecord) {
     
     
     const query = `
-    INSERT INTO survivor.selection (_fk_user_id, _fk_week_id, _fk_castaway_id, is_captain)
-    VALUES ${castaways.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(", ")};
+      INSERT INTO survivor.selection (_fk_user_id, _fk_week_id, _fk_castaway_id, is_captain)
+      VALUES ${castaways.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(", ")}
+      RETURNING id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, created_at, removed_at;
     `;
 
+
     const values = castaways.flatMap(({ castawayId, isCaptain }) => [userId, weekId, castawayId, isCaptain]);
-    await client.query(query, values);
+    const insertResult = await client.query(query, values);
 
     await client.query("COMMIT;");
+    return {
+      statusCode: 200,
+      body: insertResult.rows
+    }
 
   } catch (error) {
       await client.query("ROLLBACK;");
