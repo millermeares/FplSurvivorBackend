@@ -12,7 +12,8 @@ async function getCastaways(client, args, userRecord) {
   }
 }
 
-async function getSelectionsForWeek(client, weekId, userRecord) {
+async function getSelectionsForWeek(client, args, userRecord) {
+  const weekId = JSON.parse(args).weekId
   const userId = userRecord.id
   const query = `
       SELECT id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, created_at, removed_at
