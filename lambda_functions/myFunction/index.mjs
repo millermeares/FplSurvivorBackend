@@ -4,15 +4,15 @@ import { Signer } from "./signer.js";
 import { getUserInfo, verifyToken } from "./auth.js";
 import { getOrCreateUser } from "./userDal.js" 
 
-async function getCastaways(client, args, userInfo) {
+async function getCastaways(client, args, userRecord) {
   const res = await client.query(`SELECT id, name, season, image_url, _fk_week_eliminated FROM survivor.castaway;`)
   return {
     statusCode: 200,
-    body: JSON.stringify(res.rows)
+    body: res.rows
   }
 }
 
-async function getSelectionsForWeek(client, weekId, userId) {
+async function getSelectionsForWeek(client, weekId, userRecord) {
   const query = `
       SELECT id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, created_at, removed_at
       FROM survivor.selection 
@@ -25,10 +25,10 @@ async function getSelectionsForWeek(client, weekId, userId) {
   return res.rows;
 }
 
-async function setSelections(client, args) {
-  const body = JSON.parse(args)
-  const selections = body['castaways']
-  const userId = body['userId']
+async function setSelections(client, args, userRecord) {
+  const body = JSON.parse(args) // todo - not sure if this needed.
+  const selections = body['castaways'] // [{ castawayId, isCaptain }]
+  const userId = userRecord.id
   const weekId = body['week'] // probably not a great parameterized thing.
   if (selections.length > 1) {
     return {
@@ -36,7 +36,7 @@ async function setSelections(client, args) {
       body: "Too many selections"
     }
   }
-  // todo: more validation. 
+  // todo: more validation, especially around what week we are setting selections for.
   try {
     await client.query("BEGIN;");
     
@@ -73,7 +73,11 @@ const methodBank = {
   '/getSelectionsForWeek': getSelectionsForWeek
 }
 
-async function execute(event, client) {
+function stringifyIfNotString(value) {
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+async function execute(event, client, userRecord) {
   if (!methodBank[event['path']]) {
     console.log(`Could not find registered method for ${event['path']}`)
     return {
@@ -83,7 +87,7 @@ async function execute(event, client) {
   }
   const method = methodBank[event['path']]
   try {
-    return await method(client, event['body'])
+    return await method(client, event['body'], userRecord)
   } catch (err) {
     console.log("Error when executing path")
     console.error(err)
@@ -102,7 +106,8 @@ function handleCors(result) {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization"
-  }
+  } 
+  result.body = stringifyIfNotString(result.body)
   return result
 }
 
