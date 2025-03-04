@@ -1,50 +1,15 @@
 import pg from "pg";
 const { Client } = pg;
 import { Signer } from "./signer.js";
-import { getUserInfo } from "./auth.js";
+import { getUserInfo, verifyToken } from "./auth.js";
+import { getOrCreateUser } from "./userDal.js" 
 
-async function getCastaways(client, args) {
+async function getCastaways(client, args, userInfo) {
   const res = await client.query(`SELECT id, name, season, image_url, _fk_week_eliminated FROM survivor.castaway;`)
   return {
     statusCode: 200,
     body: JSON.stringify(res.rows)
   }
-}
-
-async function getUserByEmail(client, args) {
-  const email = JSON.parse(args)['email'] // open question - is parse required here?
-  const query = `SELECT id, email, created_at FROM survivor.user WHERE email = $1;`;
-  const res = await client.query(query, [email]);
-  if (res.rows.length < 1) {
-    return {
-      statusCode: 404,
-      body: "User does not exist"
-    }
-  }
-  return {
-    statusCode: 200,
-    body: JSON.stringify(res.rows[0])
-  }
-}
-
-async function createUser(client, args) {
-  const email = JSON.parse(args)['email'] // open question - is parse required here?
-  const query = `
-        INSERT INTO survivor.user (email)
-        VALUES ($1)
-        ON CONFLICT (email) DO NOTHING
-        RETURNING id, email, created_at;
-    `;
-    
-  const res = await client.query(query, [email])
-  if (res.rows.length > 0) {
-    // successfully created, return!
-    return {
-      statusCode: 201,
-      body: JSON.stringify(res.rows[0])
-    }
-  }
-  return await getUserByEmail(client, args)
 }
 
 async function getSelectionsForWeek(client, weekId, userId) {
@@ -65,7 +30,7 @@ async function setSelections(client, args) {
   const selections = body['castaways']
   const userId = body['userId']
   const weekId = body['week'] // probably not a great parameterized thing.
-  if (selections.length > 3) {
+  if (selections.length > 1) {
     return {
       statusCode: 400,
       body: "Too many selections"
@@ -118,7 +83,6 @@ async function execute(event, client) {
   }
   const method = methodBank[event['path']]
   try {
-    await client.connect()
     return await method(client, event['body'])
   } catch (err) {
     console.log("Error when executing path")
@@ -134,7 +98,6 @@ async function execute(event, client) {
 }
 
 function handleCors(result) {
-  console.log("manually setting headers to handle cors maybe")
   result['headers'] = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -157,35 +120,65 @@ async function getConnectedDbClient() {
       rejectUnauthorized: false
     },
   });
+  await client.connect()
   return client
+}
+
+async function getVerifiedUserInfo(token) {
+  try {
+    return await verifyToken(token)
+  } catch (err) {
+    console.error(err)
+    return {
+      statusCode: 401,
+      message: "Failed to retrieve valid user information"
+    }
+  }
 }
 
 // https://docs.aws.amazon.com/lambda/latest/dg/nodejs-handler.html
 export const handler = async (event) => {
-  console.log(event)
-  if (event.httpMethod == "OPTIONS") {
+  try {
+    console.log(event)
+    if (event.httpMethod == "OPTIONS") {
+      return {
+          statusCode: 204,
+          headers: {
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, Authorization"
+          },
+        body: ""
+      };
+    }
+
+
+    // Extract Authorization header
+    const authHeader = event.headers?.Authorization || event.headers?.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized: No valid token provided" }) };
+    }
+    const accessToken = authHeader.split(" ")[1];
+    const userInfo = await getUserInfo(accessToken)
+    console.log(userInfo)
+    if (userInfo.statusCode == 401) {
+      return userInfo
+    }
+    const client = await getConnectedDbClient()
+    const userResult = await getOrCreateUser(client, userInfo)
+    console.log(userResult)
+    if (userResult.statusCode > 201) {
+      return userResult
+    }
+    const userRecord = userResult.body
+    console.log(userRecord)
+    const result = await execute(event, client)
+    return handleCors(result)
+  } catch (err) {
+    console.error(err)
     return {
-        statusCode: 204,
-        headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization"
-        },
-      body: ""
-    };
+      statusCode: 500,
+      body: "Something went wrong"
+    }
   }
-
-
-  // Extract Authorization header
-  const authHeader = event.headers?.Authorization || event.headers?.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized: No valid token provided" }) };
-  }
-  const accessToken = authHeader.split(" ")[1];
-  const userInfo = await getUserInfo(accessToken)
-  console.log("retrieved user info")
-  console.log(userInfo)
-  const client = await getConnectedDbClient()
-  const result = await execute(event, client)
-  return handleCors(result)
 };
