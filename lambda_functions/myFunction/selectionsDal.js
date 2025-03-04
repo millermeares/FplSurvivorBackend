@@ -1,5 +1,5 @@
 export async function getSelectionsForWeek(client, args, userRecord) {
-  const weekId = JSON.parse(args).weekId
+  const weekId = JSON.parse(args).week
   const userId = userRecord.id
   const query = `
       SELECT id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, created_at, removed_at
@@ -23,6 +23,45 @@ export async function getSelectionsForWeek(client, args, userRecord) {
     }
   }
 }
+
+export async function getCastawaysWithSelections(client, args, userRecord) {
+  const weekId = JSON.parse(args).week;
+  const userId = userRecord.id;
+
+  const query = `
+    SELECT 
+      c.id, 
+      c.name, 
+      c.season, 
+      c.image_url, 
+      c._fk_week_eliminated, 
+      s.id AS selection_id, 
+      s.is_captain, 
+      s.created_at, 
+      s.removed_at
+    FROM survivor.castaway c
+    LEFT OUTER JOIN survivor.selection s 
+      ON c.id = s._fk_castaway_id 
+      AND s._fk_user_id = $1 
+      AND s._fk_week_id = $2 
+      AND s.removed_at = '9999-12-31 23:59:59';
+  `;
+
+  try {
+    const res = await client.query(query, [userId, weekId]);
+    return {
+      statusCode: 200,
+      body: res.rows
+    };
+  } catch (err) {
+    console.error("Error getting castaways with selections:", err);
+    return {
+      statusCode: 500,
+      body: "Something went wrong"
+    };
+  }
+}
+
 
 export async function setSelections(client, args, userRecord) {
   const body = JSON.parse(args) // todo - not sure if this needed.

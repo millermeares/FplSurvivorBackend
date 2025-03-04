@@ -3,7 +3,7 @@ const { Client } = pg;
 import { Signer } from "./signer.js";
 import { getUserInfo, verifyToken } from "./auth.js";
 import { getOrCreateUser } from "./userDal.js" 
-import { getSelectionsForWeek, setSelections } from './selectionsDal.js'
+import { getSelectionsForWeek, setSelections, getCastawaysWithSelections } from './selectionsDal.js'
 
 
 async function getCastaways(client, args, userRecord) {
@@ -18,7 +18,8 @@ async function getCastaways(client, args, userRecord) {
 const methodBank = {
   '/castaways': getCastaways,
   '/setSelections': setSelections,
-  '/getSelectionsForWeek': getSelectionsForWeek
+  '/getSelectionsForWeek': getSelectionsForWeek,
+  '/castawaysWithSelections': getCastawaysWithSelections
 }
 
 function stringifyIfNotString(value) {
