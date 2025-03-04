@@ -13,6 +13,7 @@ async function getCastaways(client, args, userRecord) {
 }
 
 async function getSelectionsForWeek(client, weekId, userRecord) {
+  const userId = userRecord.id
   const query = `
       SELECT id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, created_at, removed_at
       FROM survivor.selection 
@@ -20,9 +21,20 @@ async function getSelectionsForWeek(client, weekId, userRecord) {
       AND _fk_week_id = $2 
       AND removed_at = '9999-12-31 23:59:59';
   `;
-  
-  const res = await client.query(query, [userId, weekId]);
-  return res.rows;
+  try {
+    const res = await client.query(query, [userId, weekId]);
+    return {
+      statusCode: 200,
+      body: res.rows
+    }
+  } catch (err) {
+    console.log(err)
+    console.log("error getting selections for week")
+    return {
+      status: 500,
+      body: "Something went wrong"
+    }
+  }
 }
 
 async function setSelections(client, args, userRecord) {
