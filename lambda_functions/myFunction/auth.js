@@ -28,8 +28,13 @@ export async function getUserInfo(token) {
     });
 
     if (!response.ok) {
-      console.log(response)
-      throw new Error("Invalid token or Auth0 error");
+      if (response.status == 401) {
+        return {
+          statusCode: response.status,
+          body: response.message
+        }
+      }
+      throw new Error("Unexpected response from auth0")
     }
 
     return await response.json();
