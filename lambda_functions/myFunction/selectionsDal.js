@@ -1,15 +1,15 @@
+import { getWeek } from './weekDal.js'
+
 export async function getSelectionsForWeek(client, args, userRecord) {
   const weekId = JSON.parse(args).week
-  const userId = userRecord.id
   const query = `
       SELECT id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, created_at, removed_at
       FROM survivor.selection 
-      WHERE _fk_user_id = $1 
-      AND _fk_week_id = $2 
+      AND _fk_week_id = $1 
       AND removed_at = '9999-12-31 23:59:59';
   `;
   try {
-    const res = await client.query(query, [userId, weekId]);
+    const res = await client.query(query, [weekId]);
     return {
       statusCode: 200,
       body: res.rows
@@ -24,9 +24,11 @@ export async function getSelectionsForWeek(client, args, userRecord) {
   }
 }
 
+// returns { castaways: castawaysWithSelections, week: weekRecord }
 export async function getCastawaysWithSelections(client, args, userRecord) {
   const weekId = JSON.parse(args).week;
   const userId = userRecord.id;
+  const week = await getWeek(client, weekId)
 
   const query = `
     SELECT 
@@ -51,7 +53,10 @@ export async function getCastawaysWithSelections(client, args, userRecord) {
     const res = await client.query(query, [userId, weekId]);
     return {
       statusCode: 200,
-      body: res.rows
+      body: {
+        castaways: res.rows,
+        week: week
+      }
     };
   } catch (err) {
     console.error("Error getting castaways with selections:", err);
@@ -62,12 +67,9 @@ export async function getCastawaysWithSelections(client, args, userRecord) {
   }
 }
 
-
-export async function setSelections(client, args, userRecord) {
-  const body = JSON.parse(args) // todo - not sure if this needed.
-  const castaways = body.castaways // [{ castawayId, isCaptain }]
+// castaways is [{ castawayId, isCaptain }]
+export async function setSelections(client, weekId, castaways, userRecord) {
   const userId = userRecord.id
-  const weekId = body['week'] // probably not a great parameterized thing.
   if (castaways.length > 1) {
     return {
       statusCode: 400,

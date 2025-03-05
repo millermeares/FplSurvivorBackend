@@ -3,7 +3,8 @@ const { Client } = pg;
 import { Signer } from "./signer.js";
 import { getUserInfo, verifyToken } from "./auth.js";
 import { getOrCreateUser } from "./userDal.js" 
-import { getSelectionsForWeek, setSelections, getCastawaysWithSelections } from './selectionsDal.js'
+import { getSelectionsForWeek, getCastawaysWithSelections, setSelections } from './selectionsDal.js'
+import { getWeek } from './weekDal.js'
 
 
 async function getCastaways(client, args, userRecord) {
@@ -14,10 +15,42 @@ async function getCastaways(client, args, userRecord) {
   }
 }
 
+/**
+ * Determines if the current time is past the lock time for the given week.
+ * @param {{ season: number, episode_number: number, lock_time: string }} week - The week object with lock_time in UTC.
+ * @returns {boolean} True if the current time is past the lock time, otherwise false.
+ */
+function isPastLockTime(week) {
+  if (!week || !week.lock_time) {
+      throw new Error("Invalid week object: missing lock_time");
+  }
+
+  const lockTime = new Date(week.lock_time); // Convert lock_time string to Date object
+  const now = new Date(); // Get current time in UTC
+  return now > lockTime;
+}
+
+
+
+async function setSelectionsIfValid(client, args, userRecord) {
+  const body = JSON.parse(args)
+  const castaways = body.castaways
+  const weekId = body.week
+  const week = await getWeek(client, weekId)
+  console.log(week)
+  if (isPastLockTime(week)) {
+    return {
+      statusCode: 400,
+      body: "Submission time for this week is over."
+    }
+  }
+  return setSelections(client, weekId, castaways, userRecord)
+}
+
 
 const methodBank = {
   '/castaways': getCastaways,
-  '/setSelections': setSelections,
+  '/setSelections': setSelectionsIfValid,
   '/getSelectionsForWeek': getSelectionsForWeek,
   '/castawaysWithSelections': getCastawaysWithSelections
 }
