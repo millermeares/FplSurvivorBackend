@@ -33,3 +33,15 @@ CREATE TABLE survivor.selection (
     removed_at TIMESTAMP NOT NULL DEFAULT '9999-12-31 23:59:59',
     UNIQUE(_fk_user_id, _fk_week_id, _fk_castaway_id, removed_at)
 );
+
+CREATE TABLE survivor.castaway_event (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    _fk_castaway_id UUID NOT NULL,
+    week INT NOT NULL,
+    event_type TEXT NOT NULL,
+    metadata TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT now(),
+    removed_at TIMESTAMP NOT NULL DEFAULT '9999-12-31 23:59:59'
+);
+
+CREATE INDEX idx_castaway_week ON survivor.castaway_event (_fk_castaway_id, week);

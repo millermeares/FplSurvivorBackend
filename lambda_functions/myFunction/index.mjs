@@ -5,7 +5,7 @@ import { getUserInfo, verifyToken } from "./auth.js";
 import { getOrCreateUser } from "./userDal.js" 
 import { getSelectionsForWeek, getCastawaysWithSelections, setSelections } from './selectionsDal.js'
 import { getWeek } from './weekDal.js'
-
+import { getCastawayEventsWithScoring } from './scoringDal.js'
 
 async function getCastaways(client, args, userRecord) {
   const res = await client.query(`SELECT id, name, season, image_url, _fk_week_eliminated FROM survivor.castaway;`)
@@ -52,7 +52,8 @@ const methodBank = {
   '/castaways': getCastaways,
   '/setSelections': setSelectionsIfValid,
   '/getSelectionsForWeek': getSelectionsForWeek,
-  '/castawaysWithSelections': getCastawaysWithSelections
+  '/castawaysWithSelections': getCastawaysWithSelections,
+  '/eventsWithScoring': getCastawayEventsWithScoring
 }
 
 function stringifyIfNotString(value) {
