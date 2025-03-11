@@ -67,6 +67,41 @@ export async function getCastawaysWithSelections(client, args, userRecord) {
   }
 }
 
+export async function allSelectionsForUser(client, args, userRecord) {
+  const userId = userRecord.id;
+  const query = `
+    SELECT 
+      c.id, 
+      c.name, 
+      c.season, 
+      c.image_url, 
+      c._fk_week_eliminated, 
+      s.id AS selection_id, 
+      s.is_captain, 
+      s.created_at, 
+      s.removed_at
+    FROM survivor.castaway c
+    LEFT OUTER JOIN survivor.selection s 
+      ON c.id = s._fk_castaway_id 
+      AND s._fk_user_id = $1 
+      AND s.removed_at = '9999-12-31 23:59:59';
+  `;
+
+  try {
+    const res = await client.query(query, [userId]);
+    return {
+      statusCode: 200,
+      body: res.rows
+    };
+  } catch (err) {
+    console.error("Error getting castaways with selections:", err);
+    return {
+      statusCode: 500,
+      body: "Something went wrong"
+    };
+  }
+}
+
 // castaways is [{ castawayId, isCaptain }]
 export async function setSelections(client, weekId, castaways, userRecord) {
   const userId = userRecord.id
