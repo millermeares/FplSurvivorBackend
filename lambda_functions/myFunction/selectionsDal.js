@@ -80,7 +80,7 @@ export async function allSelectionsForUser(client, args, userRecord) {
       s.is_captain, 
       s.created_at, 
       s.removed_at
-    FROM survivor.castaway c
+    FROM survivor.selection s 
     LEFT OUTER JOIN survivor.selection s 
       ON c.id = s._fk_castaway_id 
       AND s._fk_user_id = $1 
