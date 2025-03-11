@@ -59,5 +59,4 @@ async function getAllCastawayEvents(client) {
       body: "Something went wrong"
     }
   }
-
 }

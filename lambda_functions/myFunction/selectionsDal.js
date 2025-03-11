@@ -113,3 +113,38 @@ export async function setSelections(client, weekId, castaways, userRecord) {
       throw error;
   }
 }
+
+export async function getAllActiveSelections(client, args, userRecord) {
+  const query = `
+  SELECT 
+    u.id AS user_id,
+    u.email AS user_email,
+    u.name AS user_name,
+    c.id AS castaway_id,
+    c.image_url AS castaway_image_url,
+    s.id AS selection_id,
+    s._fk_week_id,
+    s.is_captain,
+    s.created_at,
+    s.removed_at
+  FROM survivor.selection s
+  JOIN survivor.user u ON s._fk_user_id = u.id
+  JOIN survivor.castaway c ON s._fk_castaway_id = c.id
+  JOIN survivor.week w ON s._fk_week_id = w.episode_number  -- Ensure correct join condition
+  WHERE s.removed_at = '9999-12-31 23:59:59'
+  AND w.lock_time < NOW();
+  `
+  try {
+    const res = await client.query(query);
+    return {
+      statusCode: 200,
+      body: res.rows
+    };
+  } catch (err) {
+    console.error("Error getting castaways with selections:", err);
+    return {
+      statusCode: 500,
+      body: "Something went wrong"
+    };
+  }
+}

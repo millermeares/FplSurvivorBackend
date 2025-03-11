@@ -3,7 +3,7 @@ const { Client } = pg;
 import { Signer } from "./signer.js";
 import { getUserInfo, verifyToken } from "./auth.js";
 import { getOrCreateUser } from "./userDal.js" 
-import { getSelectionsForWeek, getCastawaysWithSelections, setSelections } from './selectionsDal.js'
+import { getSelectionsForWeek, getCastawaysWithSelections, setSelections, getAllActiveSelections } from './selectionsDal.js'
 import { getWeek } from './weekDal.js'
 import { getCastawayEventsWithScoring } from './scoringDal.js'
 
@@ -53,7 +53,8 @@ const methodBank = {
   '/setSelections': setSelectionsIfValid,
   '/getSelectionsForWeek': getSelectionsForWeek,
   '/castawaysWithSelections': getCastawaysWithSelections,
-  '/eventsWithScoring': getCastawayEventsWithScoring
+  '/eventsWithScoring': getCastawayEventsWithScoring,
+  '/activeSelections': getAllActiveSelections
 }
 
 function stringifyIfNotString(value) {
