@@ -1,11 +1,23 @@
 import pg from "pg";
-const { Client } = pg;
+const { Pool } = pg;
 import { Signer } from "./signer.js";
 import { getUserInfo, verifyToken } from "./auth.js";
 import { getOrCreateUser } from "./userDal.js" 
 import { getSelectionsForWeek, getCastawaysWithSelections, setSelections, getAllActiveSelections } from './selectionsDal.js'
 import { getWeek } from './weekDal.js'
 import { getCastawayEventsWithScoring } from './scoringDal.js'
+
+// Set up a global connection pool
+const pool = new Pool({
+  user: "admin",
+  database: "postgres",
+  host: process.env.DB_ENDPOINT,
+  ssl: { rejectUnauthorized: false },
+  max: 10, // Number of connections in the pool
+  idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+  connectionTimeoutMillis: 2000, // Timeout for acquiring a connection
+});
+
 
 async function getCastaways(client, args, userRecord) {
   const res = await client.query(`SELECT id, name, season, image_url, _fk_week_eliminated FROM survivor.castaway;`)
@@ -80,8 +92,7 @@ async function execute(event, client, userRecord) {
       body: "Internal Error"
     }
   } finally {
-    client.end();
-    Promise.resolve()
+    client.release()
   }
 }
 
@@ -95,22 +106,15 @@ function handleCors(result) {
   return result
 }
 
-async function getConnectedDbClient() { 
-  const endpoint = process.env.DB_ENDPOINT;
-  const s = new Signer(endpoint);
+async function getConnectedDbClient() {
+  const s = new Signer(process.env.DB_ENDPOINT);
   const token = await s.getAuthToken();
-  console.log("auth token received, creating client and continuing.")
-  const client = new Client({
-    user: "admin",
-    database: "postgres",
-    host: endpoint,
-    password: token,
-    ssl: { 
-      rejectUnauthorized: false
-    },
-  });
-  await client.connect()
-  return client
+  
+  // Update pool password dynamically
+  pool.options.password = token;
+
+  // Get a client from the pool
+  return await pool.connect();
 }
 
 async function getVerifiedUserInfo(token) {
