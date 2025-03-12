@@ -8,6 +8,9 @@ const AUTH0_INTROSPECTION_URL = `https://${AUTH0_DOMAIN}/oauth/token/introspect`
 const AUTH0_AUDIENCE = process.env.AUTH0_API_ID
 
 const AUTH0_USERINFO_DOMAIN = 'https://dev-2vs2quxv5ne8187x.us.auth0.com/userinfo'
+
+const userInfoCache = {}
+
 /**
  * Retrieves user info for an opaque Auth0 token.
  * @param {string} token - The opaque access token.
@@ -16,6 +19,10 @@ const AUTH0_USERINFO_DOMAIN = 'https://dev-2vs2quxv5ne8187x.us.auth0.com/userinf
 export async function getUserInfo(token) {
   if (!token) {
     throw new Error("Token is required");
+  }
+  if (userInfoCache[token]) {
+    console.log("Returning user info from cache")
+    return userInfoCache[token]
   }
 
   try {
@@ -38,8 +45,8 @@ export async function getUserInfo(token) {
       console.log(response)
       throw new Error("Unexpected response from auth0")
     }
-
-    return await response.json();
+    userInfoCache[token] = await response.json()
+    return userInfoCache[token]
   } catch (error) {
     throw new Error(`Failed to fetch user info: ${error.message}`);
   }
