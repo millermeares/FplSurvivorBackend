@@ -32,7 +32,7 @@ export async function getUserInfo(token) {
       if (response.status == 401) {
         return {
           statusCode: response.status,
-          body: response.message
+          body: response.statusText
         }
       }
       console.log(response)

@@ -81,9 +81,10 @@ export async function allSelectionsForUser(client, args, userRecord) {
       s.created_at, 
       s.removed_at
     FROM survivor.selection s 
-    LEFT OUTER JOIN survivor.selection s 
+      JOIN survivor.castaway c
       ON c.id = s._fk_castaway_id 
-      AND s._fk_user_id = $1 
+    WHERE
+      s._fk_user_id = $1 
       AND s.removed_at = '9999-12-31 23:59:59';
   `;
 
