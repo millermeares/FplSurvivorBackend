@@ -1,4 +1,4 @@
-import { getWeek } from './weekDal.js'
+import { getWeek, argWeekOrCurrent } from './weekDal.js'
 
 export async function getSelectionsForWeek(client, args, userRecord) {
   const weekId = JSON.parse(args).week
@@ -26,7 +26,7 @@ export async function getSelectionsForWeek(client, args, userRecord) {
 
 // returns { castaways: castawaysWithSelections, week: weekRecord }
 export async function getCastawaysWithSelections(client, args, userRecord) {
-  const weekId = JSON.parse(args).week;
+  const weekId = await argWeekOrCurrent(client, args)
   const userId = userRecord.id;
   const week = await getWeek(client, weekId)
 
