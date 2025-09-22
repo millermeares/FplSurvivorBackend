@@ -1,15 +1,18 @@
-import { getWeek, argWeekOrCurrent } from './weekDal.js'
+import { SEASON_NUMBER, getWeek, argWeekOrCurrent } from './weekDal.js'
 
 export async function getSelectionsForWeek(client, args, userRecord) {
   const weekId = JSON.parse(args).week
   const query = `
       SELECT id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, created_at, removed_at
-      FROM survivor.selection 
-      AND _fk_week_id = $1 
-      AND removed_at = '9999-12-31 23:59:59';
+      FROM survivor.selection s
+      JOIN survivor.week w 
+        ON s._fk_week_id = w.episode_number
+       AND w.season = $2
+      WHERE s._fk_week_id = $1
+      AND s.removed_at = '9999-12-31 23:59:59';
   `;
   try {
-    const res = await client.query(query, [weekId]);
+    const res = await client.query(query, [weekId, SEASON_NUMBER]);
     return {
       statusCode: 200,
       body: res.rows
@@ -46,11 +49,12 @@ export async function getCastawaysWithSelections(client, args, userRecord) {
       ON c.id = s._fk_castaway_id 
       AND s._fk_user_id = $1 
       AND s._fk_week_id = $2 
-      AND s.removed_at = '9999-12-31 23:59:59';
+      AND s.removed_at = '9999-12-31 23:59:59'
+    WHERE c.season = $3;
   `;
 
   try {
-    const res = await client.query(query, [userId, weekId]);
+    const res = await client.query(query, [userId, weekId, SEASON_NUMBER]);
     return {
       statusCode: 200,
       body: {
@@ -82,14 +86,14 @@ export async function allSelectionsForUser(client, args, userRecord) {
       s.removed_at
     FROM survivor.selection s 
       JOIN survivor.castaway c
-      ON c.id = s._fk_castaway_id 
-    WHERE
-      s._fk_user_id = $1 
-      AND s.removed_at = '9999-12-31 23:59:59';
+        ON c.id = s._fk_castaway_id 
+    WHERE s._fk_user_id = $1 
+      AND s.removed_at = '9999-12-31 23:59:59'
+      AND c.season = $2;
   `;
 
   try {
-    const res = await client.query(query, [userId]);
+    const res = await client.query(query, [userId, SEASON_NUMBER]);
     return {
       statusCode: 200,
       body: res.rows
@@ -117,23 +121,23 @@ export async function setSelections(client, weekId, castaways, userRecord) {
   try {
     await client.query("BEGIN;");
     
-
     await client.query(
-        `UPDATE survivor.selection 
+        `UPDATE survivor.selection s
           SET removed_at = NOW()
-          WHERE _fk_user_id = $1 
-          AND _fk_week_id = $2 
-          AND removed_at = '9999-12-31 23:59:59';`,
-        [userId, weekId]
+          FROM survivor.week w
+          WHERE s._fk_user_id = $1 
+          AND s._fk_week_id = $2
+          AND w.episode_number = s._fk_week_id
+          AND w.season = $3
+          AND s.removed_at = '9999-12-31 23:59:59';`,
+        [userId, weekId, SEASON_NUMBER]
     );
-    
     
     const query = `
       INSERT INTO survivor.selection (_fk_user_id, _fk_week_id, _fk_castaway_id, is_captain)
       VALUES ${castaways.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(", ")}
       RETURNING id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, created_at, removed_at;
     `;
-
 
     const values = castaways.flatMap(({ castawayId, isCaptain }) => [userId, weekId, castawayId, isCaptain]);
     const insertResult = await client.query(query, values);
@@ -166,12 +170,15 @@ export async function getAllActiveSelections(client, args, userRecord) {
   FROM survivor.selection s
   JOIN survivor.user u ON s._fk_user_id = u.id
   JOIN survivor.castaway c ON s._fk_castaway_id = c.id
-  JOIN survivor.week w ON s._fk_week_id = w.episode_number  -- Ensure correct join condition
+  JOIN survivor.week w 
+    ON s._fk_week_id = w.episode_number 
+   AND c.season = w.season
   WHERE s.removed_at = '9999-12-31 23:59:59'
-  AND w.lock_time < NOW();
+    AND w.lock_time < NOW()
+    AND w.season = $1;
   `
   try {
-    const res = await client.query(query);
+    const res = await client.query(query, [SEASON_NUMBER]);
     return {
       statusCode: 200,
       body: res.rows

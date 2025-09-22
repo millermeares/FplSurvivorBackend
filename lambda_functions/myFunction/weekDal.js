@@ -1,4 +1,4 @@
-const SEASON_NUMBER = 48
+export const SEASON_NUMBER = 49
 
 /**
  * Fetches a week entry from the survivor.week table by primary key.
@@ -38,6 +38,7 @@ export async function getCurrentWeek(client) {
                     ELSE 3 -- past episode
                 END AS rank
             FROM survivor.week
+            WHERE season = $1
         )
         SELECT season, episode_number, lock_time
         FROM ranked_weeks
@@ -46,9 +47,9 @@ export async function getCurrentWeek(client) {
     `;
 
     try {
-        const res = await client.query(query);
+        const res = await client.query(query, [SEASON_NUMBER]);
         if (res.rows.length === 0) {
-            throw new Error("No weeks found");
+            throw new Error("No weeks found for season " + SEASON_NUMBER);
         }
         return res.rows[0];
     } catch (error) {
@@ -57,6 +58,37 @@ export async function getCurrentWeek(client) {
     }
 }
 
+/**
+ * Returns the latest Survivor season.
+ */
+export async function getCurrentSeason(client) {
+    const query = `
+        SELECT DISTINCT season
+        FROM survivor.week
+        ORDER BY season DESC
+        LIMIT 1;
+    `;
+
+    try {
+        const res = await client.query(query);
+        if (res.rows.length === 0) {
+            throw new Error("No seasons found");
+        }
+        return res.rows[0]; // { season: <number> }
+    } catch (error) {
+        console.error("Error fetching latest schema:", error);
+        throw error;
+    }
+}
+
+export async function argSeasonOrCurrent(client, args) {
+  const parsed = JSON.parse(args);
+  if (parsed.season) {
+    return parsed.season;
+  }
+  const latestSeason = await getLatestSchema(client);
+  return latestSeason.season;
+}
 
 export async function argWeekOrCurrent(client, args) {
   const parsed = JSON.parse(args)

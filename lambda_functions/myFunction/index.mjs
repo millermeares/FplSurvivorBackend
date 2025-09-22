@@ -4,7 +4,7 @@ import { Signer } from "./signer.js";
 import { getUserInfo, verifyToken } from "./auth.js";
 import { getOrCreateUser } from "./userDal.js" 
 import { getSelectionsForWeek, getCastawaysWithSelections, setSelections, getAllActiveSelections, allSelectionsForUser } from './selectionsDal.js'
-import { getWeek } from './weekDal.js'
+import { SEASON_NUMBER, getWeek } from './weekDal.js'
 import { getCastawayEventsWithScoring } from './scoringDal.js'
 
 // Set up a global connection pool
@@ -20,10 +20,24 @@ const pool = new Pool({
 
 
 async function getCastaways(client, args, userRecord) {
-  const res = await client.query(`SELECT id, name, season, image_url, _fk_week_eliminated FROM survivor.castaway;`)
-  return {
-    statusCode: 200,
-    body: res.rows
+  const query = `
+    SELECT id, name, season, image_url, _fk_week_eliminated
+    FROM survivor.castaway
+    WHERE season = $1;
+  `;
+
+  try {
+    const res = await client.query(query, [SEASON_NUMBER]);
+    return {
+      statusCode: 200,
+      body: res.rows
+    };
+  } catch (err) {
+    console.error("Error getting castaways:", err);
+    return {
+      status: 500,
+      body: "Something went wrong"
+    };
   }
 }
 

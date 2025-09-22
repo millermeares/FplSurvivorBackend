@@ -1,3 +1,5 @@
+import { SEASON_NUMBER } from "./weekDal.js"
+
 const CASTAWAY_EVENTS_SCORING = {
   'NON_IMMUNITY_WIN': 1,
   'FIND_IDOL': 1,
@@ -37,24 +39,26 @@ async function getAllCastawayEvents(client) {
     w.episode_number,
     ce.event_type,
     ce.created_at
-    FROM survivor.castaway c
-    CROSS JOIN survivor.week w
+  FROM survivor.castaway c
+  CROSS JOIN survivor.week w
   LEFT JOIN survivor.castaway_event ce 
       ON ce._fk_castaway_id = c.id
       AND ce.week = w.episode_number
       AND ce.removed_at = '9999-12-31 23:59:59'
   WHERE w.lock_time <= NOW()
+    AND w.season = $1
+    AND c.season = $1
   ORDER BY c.name, w.season, w.episode_number, ce.created_at;
   `
+
   try {
-    const res = await client.query(query);
+    const res = await client.query(query, [SEASON_NUMBER]);
     return {
       statusCode: 200,
       body: res.rows
     }
   } catch (err) {
-    console.log(err)
-    console.log("error getting selections for week")
+    console.error("Error getting castaway events:", err)
     return {
       status: 500,
       body: "Something went wrong"
