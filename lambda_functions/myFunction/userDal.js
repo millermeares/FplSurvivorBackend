@@ -29,7 +29,8 @@ export async function createUser(client, userInfo) {
   const query = `
         INSERT INTO survivor.user (sub, email, name)
         VALUES ($1, $2, $3)
-        ON CONFLICT (email) DO NOTHING
+        ON CONFLICT (email) DO UPDATE
+            SET sub = survivor.user.sub  -- do not update sub.
         RETURNING id, sub, email, name, created_at;
     `;
     
@@ -43,7 +44,7 @@ export async function createUser(client, userInfo) {
   }
   
   return {
-    statusCode: 400,
+    statusCode: 500,
     body: "User not created, which is unexpected"
   };
 }

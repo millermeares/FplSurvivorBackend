@@ -29,7 +29,6 @@ export async function getCastawayEventsWithScoring(client, args, userRecord) {
   }
 }
 
-// todo: at some point, season will need to be parameter here.
 async function getAllCastawayEvents(client) {
   const query = `
   SELECT 
