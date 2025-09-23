@@ -35,7 +35,7 @@ async function getCastaways(client, args, userRecord) {
   } catch (err) {
     console.error("Error getting castaways:", err);
     return {
-      status: 500,
+      statusCode: 500,
       body: "Something went wrong"
     };
   }

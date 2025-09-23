@@ -21,7 +21,7 @@ export async function getSelectionsForWeek(client, args, userRecord) {
     console.log(err)
     console.log("error getting selections for week")
     return {
-      status: 500,
+      statusCode: 500,
       body: "Something went wrong"
     }
   }
