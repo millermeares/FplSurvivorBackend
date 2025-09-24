@@ -39,14 +39,14 @@ async function getAllCastawayEvents(client) {
     ce.event_type,
     ce.created_at
   FROM survivor.castaway c
-  CROSS JOIN survivor.week w
+  JOIN survivor.week w
+    ON c.season = w.season
   LEFT JOIN survivor.castaway_event ce 
-      ON ce._fk_castaway_id = c.id
-      AND ce.week = w.episode_number
-      AND ce.removed_at = '9999-12-31 23:59:59'
-  WHERE w.lock_time <= NOW()
+    ON ce._fk_castaway_id = c.id
+    AND ce.week = w.episode_number
+    AND ce.removed_at = '9999-12-31 23:59:59'
+  WHERE (w.lock_time <= NOW() OR w.episode_number = 1)
     AND w.season = $1
-    AND c.season = $1
   ORDER BY c.name, w.season, w.episode_number, ce.created_at;
   `
 
