@@ -25,15 +25,18 @@ CREATE TABLE survivor.week (
 
 CREATE TABLE survivor.selection (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    _fk_user_id UUID NOT NULL,
-    _fk_week_id INT NOT NULL,
+    _fk_user_id     UUID NOT NULL,
     _fk_castaway_id UUID NOT NULL,
+    _fk_week_id     INT  NOT NULL,
+    _fk_season      INT  NOT NULL,
     is_captain BOOLEAN DEFAULT FALSE,
-    source TEXT DEFAULT NULL,
+    source     TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     removed_at TIMESTAMP NOT NULL DEFAULT '9999-12-31 23:59:59',
-    UNIQUE (_fk_user_id, _fk_week_id, _fk_castaway_id, removed_at)
+    UNIQUE (_fk_user_id, _fk_week_id, _fk_castaway_id, removed_at), -- not necessary, cannot remove in aurora-dqsl
+    UNIQUE (_fk_user_id, _fk_season, _fk_week_id, removed_at)
 );
+
 
 CREATE TABLE survivor.castaway_event (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
