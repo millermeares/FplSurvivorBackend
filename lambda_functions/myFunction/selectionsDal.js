@@ -3,27 +3,22 @@ import { SEASON_NUMBER, getWeek, argWeekOrCurrent } from './weekDal.js'
 export async function getSelectionsForWeek(client, args, userRecord) {
   const weekId = JSON.parse(args).week
   const query = `
-      SELECT id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, created_at, removed_at
+      SELECT s.id, s._fk_user_id, s._fk_week_id, s._fk_castaway_id, 
+             s.is_captain, s.created_at, s.removed_at
       FROM survivor.selection s
       JOIN survivor.week w 
         ON s._fk_week_id = w.episode_number
-       AND w.season = $2
+       AND s._fk_season = w.season
       WHERE s._fk_week_id = $1
-      AND s.removed_at = '9999-12-31 23:59:59';
+        AND s._fk_season = $2
+        AND s.removed_at = '9999-12-31 23:59:59';
   `;
   try {
     const res = await client.query(query, [weekId, SEASON_NUMBER]);
-    return {
-      statusCode: 200,
-      body: res.rows
-    }
+    return { statusCode: 200, body: res.rows };
   } catch (err) {
-    console.log(err)
-    console.log("error getting selections for week")
-    return {
-      statusCode: 500,
-      body: "Something went wrong"
-    }
+    console.error("Error getting selections for week:", err);
+    return { statusCode: 500, body: "Something went wrong" };
   }
 }
 
@@ -35,39 +30,23 @@ export async function getCastawaysWithSelections(client, args, userRecord) {
 
   const query = `
     SELECT 
-      c.id, 
-      c.name, 
-      c.season, 
-      c.image_url, 
-      c._fk_week_eliminated, 
-      s.id AS selection_id, 
-      s.is_captain, 
-      s.created_at, 
-      s.removed_at
+      c.id, c.name, c.season, c.image_url, c._fk_week_eliminated, 
+      s.id AS selection_id, s.is_captain, s.created_at, s.removed_at
     FROM survivor.castaway c
-    LEFT OUTER JOIN survivor.selection s 
+    LEFT JOIN survivor.selection s 
       ON c.id = s._fk_castaway_id 
-      AND s._fk_user_id = $1 
-      AND s._fk_week_id = $2 
-      AND s.removed_at = '9999-12-31 23:59:59'
+     AND s._fk_user_id = $1 
+     AND s._fk_week_id = $2 
+     AND s._fk_season = $3
+     AND s.removed_at = '9999-12-31 23:59:59'
     WHERE c.season = $3;
   `;
-
   try {
     const res = await client.query(query, [userId, weekId, SEASON_NUMBER]);
-    return {
-      statusCode: 200,
-      body: {
-        castaways: res.rows,
-        week: week
-      }
-    };
+    return { statusCode: 200, body: { castaways: res.rows, week } };
   } catch (err) {
     console.error("Error getting castaways with selections:", err);
-    return {
-      statusCode: 500,
-      body: "Something went wrong"
-    };
+    return { statusCode: 500, body: "Something went wrong" };
   }
 }
 
@@ -75,35 +54,20 @@ export async function allSelectionsForUser(client, args, userRecord) {
   const userId = userRecord.id;
   const query = `
     SELECT 
-      c.id, 
-      c.name, 
-      c.season, 
-      c.image_url, 
-      c._fk_week_eliminated, 
-      s.id AS selection_id, 
-      s.is_captain, 
-      s.created_at, 
-      s.removed_at
+      c.id, c.name, c.season, c.image_url, c._fk_week_eliminated, 
+      s.id AS selection_id, s.is_captain, s.created_at, s.removed_at
     FROM survivor.selection s 
-      JOIN survivor.castaway c
-        ON c.id = s._fk_castaway_id 
+    JOIN survivor.castaway c ON c.id = s._fk_castaway_id 
     WHERE s._fk_user_id = $1 
-      AND s.removed_at = '9999-12-31 23:59:59'
-      AND c.season = $2;
+      AND s._fk_season = $2
+      AND s.removed_at = '9999-12-31 23:59:59';
   `;
-
   try {
     const res = await client.query(query, [userId, SEASON_NUMBER]);
-    return {
-      statusCode: 200,
-      body: res.rows
-    };
+    return { statusCode: 200, body: res.rows };
   } catch (err) {
-    console.error("Error getting castaways with selections:", err);
-    return {
-      statusCode: 500,
-      body: "Something went wrong"
-    };
+    console.error("Error getting all selections for user:", err);
+    return { statusCode: 500, body: "Something went wrong" };
   }
 }
 
@@ -111,46 +75,41 @@ export async function allSelectionsForUser(client, args, userRecord) {
 export async function setSelections(client, weekId, castaways, userRecord) {
   const userId = userRecord.id
   if (castaways.length > 1) {
-    return {
-      statusCode: 400,
-      body: "Too many selections"
-    }
+    return { statusCode: 400, body: "Too many selections" }
   }
-  console.log(castaways)
-  // todo: more validation, especially around what week we are setting selections for.
   try {
     await client.query("BEGIN;");
     
     await client.query(
-        `UPDATE survivor.selection s
+      `UPDATE survivor.selection s
           SET removed_at = NOW()
-          FROM survivor.week w
-          WHERE s._fk_user_id = $1 
+         FROM survivor.week w
+        WHERE s._fk_user_id = $1 
           AND s._fk_week_id = $2
+          AND s._fk_season = $3
           AND w.episode_number = s._fk_week_id
-          AND w.season = $3
+          AND w.season = s._fk_season
           AND s.removed_at = '9999-12-31 23:59:59';`,
-        [userId, weekId, SEASON_NUMBER]
+      [userId, weekId, SEASON_NUMBER]
     );
     
     const query = `
-      INSERT INTO survivor.selection (_fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, source)
-      VALUES ${castaways.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4}, 'USER')`).join(", ")}
-      RETURNING id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, created_at, removed_at;
+      INSERT INTO survivor.selection (_fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, source, _fk_season)
+      VALUES ${castaways.map((_, i) => 
+        `($${i * 5 + 1}, $${i * 5 + 2}, $${i * 5 + 3}, $${i * 5 + 4}, 'USER', $${i * 5 + 5})`
+      ).join(", ")}
+      RETURNING id, _fk_user_id, _fk_week_id, _fk_castaway_id, is_captain, source, created_at, removed_at, _fk_season;
     `;
-
-    const values = castaways.flatMap(({ castawayId, isCaptain }) => [userId, weekId, castawayId, isCaptain]);
+    const values = castaways.flatMap(({ castawayId, isCaptain }) => [
+      userId, weekId, castawayId, isCaptain, SEASON_NUMBER
+    ]);
     const insertResult = await client.query(query, values);
 
     await client.query("COMMIT;");
-    return {
-      statusCode: 200,
-      body: insertResult.rows
-    }
-
+    return { statusCode: 200, body: insertResult.rows };
   } catch (error) {
-      await client.query("ROLLBACK;");
-      throw error;
+    await client.query("ROLLBACK;");
+    throw error;
   }
 }
 
@@ -173,16 +132,13 @@ export async function getAllActiveSelections(client, args, userRecord) {
     JOIN survivor.castaway c ON s._fk_castaway_id = c.id
     JOIN survivor.week w 
       ON s._fk_week_id = w.episode_number
-     AND c.season = w.season
+     AND s._fk_season = w.season
     WHERE s.removed_at = '9999-12-31 23:59:59'
       AND w.season = $1
     ORDER BY s._fk_week_id, u.name;
   `;
-
   try {
     const res = await client.query(query, [SEASON_NUMBER]);
-
-    // Transform rows into the dual-shape SelectionResponse
     const body = res.rows.map((row) => {
       const isLocked = row.lock_time < new Date();
       return {
@@ -198,16 +154,9 @@ export async function getAllActiveSelections(client, args, userRecord) {
         removed_at: row.removed_at,
       };
     });
-
-    return {
-      statusCode: 200,
-      body,
-    };
+    return { statusCode: 200, body };
   } catch (err) {
-    console.error("Error getting castaways with selections:", err);
-    return {
-      statusCode: 500,
-      body: "Something went wrong",
-    };
+    console.error("Error getting all active selections:", err);
+    return { statusCode: 500, body: "Something went wrong" };
   }
 }
