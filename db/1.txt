@@ -29,9 +29,10 @@ CREATE TABLE survivor.selection (
     _fk_week_id INT NOT NULL,
     _fk_castaway_id UUID NOT NULL,
     is_captain BOOLEAN DEFAULT FALSE,
+    source TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     removed_at TIMESTAMP NOT NULL DEFAULT '9999-12-31 23:59:59',
-    UNIQUE(_fk_user_id, _fk_week_id, _fk_castaway_id, removed_at)
+    UNIQUE (_fk_user_id, _fk_week_id, _fk_castaway_id, removed_at)
 );
 
 CREATE TABLE survivor.castaway_event (
