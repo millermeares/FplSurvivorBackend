@@ -11,14 +11,16 @@ INSERT INTO survivor.selection (
   _fk_week_id,
   _fk_castaway_id,
   is_captain,
-  source
+  source,
+  _fk_season
 )
 SELECT
   s._fk_user_id,
   cw.episode_number + 1 AS _fk_week_id,
   s._fk_castaway_id,
   s.is_captain,
-  'AUTO' AS source
+  'AUTO' AS source,
+  c.season
 FROM survivor.selection s
 JOIN survivor.castaway c
   ON c.id = s._fk_castaway_id

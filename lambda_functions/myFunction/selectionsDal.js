@@ -81,15 +81,13 @@ export async function setSelections(client, weekId, castaways, userRecord) {
     await client.query("BEGIN;");
     
     await client.query(
-      `UPDATE survivor.selection s
-          SET removed_at = NOW()
-         FROM survivor.week w
-        WHERE s._fk_user_id = $1 
-          AND s._fk_week_id = $2
-          AND s._fk_season = $3
-          AND w.episode_number = s._fk_week_id
-          AND w.season = s._fk_season
-          AND s.removed_at = '9999-12-31 23:59:59';`,
+      `UPDATE survivor.selection
+        SET removed_at = NOW()
+        WHERE _fk_user_id = $1
+          AND _fk_week_id = $2
+          AND _fk_season  = $3
+          AND removed_at = '9999-12-31 23:59:59';
+`,
       [userId, weekId, SEASON_NUMBER]
     );
     
